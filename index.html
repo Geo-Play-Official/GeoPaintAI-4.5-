@@ -1,0 +1,2708 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>GeoPaint 4.0</title>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --card: #1a1a26;
+            --btn: #1f1f2e;
+            --border: #2a2a3a;
+            --text: #999;
+            --text2: #bbb;
+            --accent: #c0392b;
+            --gold: #c9a84c;
+            --gold-light: #e6c34a;
+            --safe-bottom: env(safe-area-inset-bottom, 8px);
+            --radius: 10px;
+            --transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        body {
+            background: var(--bg);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            touch-action: manipulation;
+            position: fixed;
+            width: 100%;
+            color: var(--text);
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 40%, rgba(192, 57, 43, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(201, 168, 76, 0.02) 0%, transparent 50%);
+            animation: bgFloat 25s ease-in-out infinite;
+            z-index: 0;
+            pointer-events: none;
+        }
+        @keyframes bgFloat {
+            0%,
+            100% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+            33% {
+                transform: translate(1%, -0.5%) rotate(1deg);
+            }
+            66% {
+                transform: translate(-0.5%, 1%) rotate(-1deg);
+            }
+        }
+
+        .app {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: 100dvh;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            background: var(--surface);
+        }
+
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            z-index: 10;
+            min-height: 38px;
+        }
+        .menu-btn,
+        .ai-btn,
+        .eraser-btn-top {
+            width: 30px;
+            height: 30px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--btn);
+            color: #fff;
+            cursor: pointer;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            flex-shrink: 0;
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+        }
+        .menu-btn:hover,
+        .ai-btn:hover,
+        .eraser-btn-top:hover {
+            background: #3a3a20;
+            color: var(--gold-light);
+            box-shadow: 0 2px 8px rgba(230, 195, 74, 0.3);
+        }
+        .ai-btn {
+            color: #8ab4f8;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .ai-btn:hover {
+            background: #1a2a3a;
+            color: #aecbfa;
+            box-shadow: 0 2px 8px rgba(138, 180, 248, 0.3);
+        }
+        .eraser-btn-top.active {
+            background: #3a3a20;
+            color: var(--gold-light);
+            box-shadow: 0 0 8px rgba(230, 195, 74, 0.5);
+        }
+        .top-title {
+            flex: 1;
+            text-align: center;
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--text2);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Canvas */
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            touch-action: none;
+            min-height: 0;
+            background: #1a1a1a;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            touch-action: none;
+            cursor: crosshair;
+            transform-origin: center center;
+        }
+        .rotation-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 3px 7px;
+            border-radius: 10px;
+            font-size: 10px;
+            pointer-events: none;
+            display: none;
+        }
+
+        /* Brush Panel */
+        .brush-panel {
+            display: flex;
+            gap: 4px;
+            overflow-x: auto;
+            padding: 4px 6px;
+            scrollbar-width: none;
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+            scroll-behavior: smooth;
+            min-height: 32px;
+            align-items: center;
+        }
+        .brush-panel::-webkit-scrollbar {
+            display: none;
+        }
+        .brush-btn {
+            min-width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--btn);
+            color: var(--text);
+            font-size: 12px;
+            flex-shrink: 0;
+            transition: all var(--transition);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        .brush-btn:hover {
+            border-color: var(--gold);
+            color: var(--gold-light);
+        }
+        .brush-btn:active {
+            animation: elasticPress 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .brush-btn.active {
+            border-color: var(--accent);
+            background: rgba(192, 57, 43, 0.15);
+            box-shadow: 0 0 10px rgba(192, 57, 43, 0.4);
+        }
+        @keyframes elasticPress {
+            0% {
+                transform: scale(1);
+            }
+            30% {
+                transform: scale(0.82);
+            }
+            60% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* Tool Row */
+        .tool-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 6px;
+            background: var(--card);
+            flex-shrink: 0;
+            min-height: 30px;
+        }
+        .color-dots {
+            display: flex;
+            gap: 4px;
+            overflow-x: auto;
+            flex: 1;
+            scrollbar-width: none;
+            align-items: center;
+        }
+        .color-dots::-webkit-scrollbar {
+            display: none;
+        }
+        .color-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all var(--transition);
+        }
+        .color-dot.active {
+            border-color: #fff;
+            box-shadow: 0 0 8px currentColor;
+        }
+        .color-dot:hover {
+            transform: scale(1.15);
+        }
+        input[type="color"] {
+            width: 24px;
+            height: 24px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            padding: 0;
+            flex-shrink: 0;
+        }
+        input[type="range"] {
+            flex: 1;
+            accent-color: var(--accent);
+            min-width: 40px;
+            height: 16px;
+        }
+        .size-label {
+            color: #fff;
+            font-weight: bold;
+            font-size: 11px;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        /* Action Row */
+        .action-row {
+            display: flex;
+            gap: 4px;
+            padding: 4px 6px;
+            background: var(--card);
+            flex-shrink: 0;
+            padding-bottom: calc(6px + var(--safe-bottom));
+        }
+        .action-btn {
+            background: var(--btn);
+            color: #fff;
+            border: 1px solid var(--border);
+            padding: 7px 8px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            flex: 1;
+            transition: all var(--transition);
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+        .action-btn:hover {
+            background: #3a3a20;
+            color: var(--gold-light);
+            box-shadow: 0 2px 8px rgba(230, 195, 74, 0.3);
+        }
+        .action-btn:active {
+            animation: elasticPress 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Anim Panel */
+        .anim-panel {
+            display: none;
+            gap: 4px;
+            padding: 4px 6px;
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+            align-items: center;
+            flex-wrap: wrap;
+            min-height: 32px;
+        }
+        .anim-panel.visible {
+            display: flex;
+        }
+        .frame-strip {
+            display: flex;
+            gap: 3px;
+            overflow-x: auto;
+            flex: 1;
+            scrollbar-width: none;
+            min-height: 28px;
+            align-items: center;
+        }
+        .frame-strip::-webkit-scrollbar {
+            display: none;
+        }
+        .frame-thumb {
+            width: 26px;
+            height: 26px;
+            border-radius: 3px;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            flex-shrink: 0;
+            overflow: hidden;
+            background: #1a1a1a;
+        }
+        .frame-thumb.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 6px rgba(192, 57, 43, 0.5);
+        }
+        .anim-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 5px;
+            border: 1px solid var(--border);
+            background: var(--btn);
+            color: #fff;
+            cursor: pointer;
+            font-size: 10px;
+            flex-shrink: 0;
+            transition: all var(--transition);
+        }
+        .anim-btn:hover {
+            background: var(--accent);
+        }
+        .anim-btn.playing {
+            background: #3a6a4a;
+            animation: playPulse 0.5s infinite;
+        }
+        @keyframes playPulse {
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(58, 106, 74, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 0 5px rgba(58, 106, 74, 0);
+            }
+        }
+        .fps-select {
+            padding: 3px 4px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background: var(--btn);
+            color: #fff;
+            font-size: 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        /* Menu */
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--transition);
+        }
+        .menu-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .side-menu {
+            position: fixed;
+            top: 0;
+            left: -260px;
+            width: 240px;
+            height: 100%;
+            background: var(--surface);
+            z-index: 60;
+            transition: left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 5px 0 25px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            border-right: 1px solid var(--border);
+        }
+        .side-menu.open {
+            left: 0;
+        }
+        .menu-header {
+            padding: 14px;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .menu-logo {
+            color: var(--accent);
+            font-weight: 900;
+            font-size: 16px;
+        }
+        .menu-close {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: none;
+            background: var(--border);
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all var(--transition);
+        }
+        .menu-close:hover {
+            background: var(--accent);
+            transform: rotate(90deg);
+        }
+        .menu-section {
+            padding: 8px 12px;
+        }
+        .menu-section-title {
+            color: var(--accent);
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 10px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text);
+            transition: all var(--transition);
+            margin-bottom: 1px;
+        }
+        .menu-item:hover {
+            background: var(--card);
+            color: #fff;
+        }
+        .menu-item .icon {
+            font-size: 15px;
+            width: 18px;
+            text-align: center;
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 70;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--transition);
+        }
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal {
+            background: var(--surface);
+            border-radius: 14px;
+            padding: 16px;
+            width: 90%;
+            max-width: 360px;
+            border: 1px solid var(--border);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7);
+            animation: springIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        @keyframes springIn {
+            0% {
+                transform: scale(0.85);
+                opacity: 0;
+            }
+            60% {
+                transform: scale(1.02);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .modal-title {
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--text2);
+        }
+        .modal-close {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: none;
+            background: var(--border);
+            color: #fff;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all var(--transition);
+        }
+        .modal-close:hover {
+            background: var(--accent);
+        }
+        .modal-option {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px;
+            border-radius: 7px;
+            cursor: pointer;
+            transition: all var(--transition);
+            margin-bottom: 3px;
+            background: var(--card);
+            border: 1px solid transparent;
+            font-size: 12px;
+            color: var(--text);
+        }
+        .modal-option:hover {
+            border-color: var(--gold);
+        }
+        .modal-option.selected {
+            border-color: var(--accent);
+            background: rgba(192, 57, 43, 0.1);
+        }
+        .modal-radio {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            flex-shrink: 0;
+        }
+        .modal-option.selected .modal-radio {
+            border-color: var(--accent);
+        }
+        .modal-option.selected .modal-radio::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+        .modal-btn {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            margin-top: 10px;
+            transition: all var(--transition);
+        }
+        .modal-btn.primary {
+            background: var(--accent);
+            color: #fff;
+        }
+        .modal-btn.primary:hover {
+            box-shadow: 0 3px 12px rgba(192, 57, 43, 0.4);
+        }
+        .modal-btn.ai-btn-modal {
+            background: #1a2a3a;
+            color: #8ab4f8;
+        }
+        .modal-btn.ai-btn-modal:hover {
+            box-shadow: 0 3px 12px rgba(138, 180, 248, 0.3);
+        }
+        .modal textarea {
+            width: 100%;
+            padding: 8px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--btn);
+            color: #fff;
+            font-size: 12px;
+            resize: vertical;
+            min-height: 50px;
+            font-family: inherit;
+        }
+        .modal input[type="text"],
+        .modal input[type="number"] {
+            width: 55px;
+            padding: 4px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background: var(--btn);
+            color: #fff;
+            font-size: 11px;
+            text-align: center;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-120px);
+            background: var(--accent);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 16px;
+            font-weight: 700;
+            font-size: 12px;
+            z-index: 100;
+            pointer-events: none;
+            transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Particles */
+        #particlesCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+        }
+
+        /* iPhone 5s fix */
+        @media (max-height: 500px) {
+            .brush-panel {
+                min-height: 26px;
+                padding: 2px 4px;
+            }
+            .brush-btn {
+                min-width: 22px;
+                height: 22px;
+                font-size: 10px;
+            }
+            .tool-row {
+                min-height: 26px;
+                padding: 2px 4px;
+            }
+            .color-dot {
+                width: 16px;
+                height: 16px;
+            }
+            .action-btn {
+                padding: 5px 6px;
+                font-size: 10px;
+            }
+            .top-bar {
+                min-height: 32px;
+                padding: 4px 6px;
+            }
+            .top-title {
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="particlesCanvas"></canvas>
+    <div class="toast" id="toast"></div>
+
+    <!-- Меню -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+    <div class="side-menu" id="sideMenu">
+        <div class="menu-header">
+            <span class="menu-logo">🎨 GeoPaint 4.0</span>
+            <button class="menu-close" id="menuClose">✕</button>
+        </div>
+        <div class="menu-section">
+            <div class="menu-section-title">Холст</div>
+            <div class="menu-item" data-action="new-canvas"><span class="icon">🖼️</span> Новый холст</div>
+            <div class="menu-item" data-action="canvas-fit"><span class="icon">📐</span> По экрану</div>
+            <div class="menu-item" data-action="canvas-square"><span class="icon">🟩</span> Квадрат 1:1</div>
+            <div class="menu-item" data-action="canvas-wide"><span class="icon">📺</span> Широкий 16:9</div>
+            <div class="menu-item" data-action="canvas-story"><span class="icon">📱</span> Story 9:16</div>
+            <div class="menu-item" data-action="canvas-color"><span class="icon">🎨</span> Цвет холста</div>
+        </div>
+        <div class="menu-section">
+            <div class="menu-section-title">Режим</div>
+            <div class="menu-item" data-mode="draw"><span class="icon">✏️</span> Рисование</div>
+            <div class="menu-item" data-mode="animate"><span class="icon">🎬</span> Анимация</div>
+        </div>
+        <div class="menu-section">
+            <div class="menu-section-title">Экспорт</div>
+            <div class="menu-item" data-action="save-photo"><span class="icon">💾</span> Сохранить фото</div>
+            <div class="menu-item" data-action="save-video"><span class="icon">🎥</span> Сохранить видео</div>
+        </div>
+        <div class="menu-section">
+            <div class="menu-section-title">Другое</div>
+            <div class="menu-item" data-action="load-image"><span class="icon">📥</span> Загрузить фото</div>
+            <div class="menu-item" data-action="clear"><span class="icon">🗑️</span> Очистить</div>
+            <div class="menu-item" data-action="undo"><span class="icon">↩️</span> Отменить</div>
+            <div class="menu-item" data-action="rate"><span class="icon">⭐</span> Оценить</div>
+            <div class="menu-item" data-action="settings"><span class="icon">⚙️</span> Настройки</div>
+        </div>
+        <div class="menu-section">
+            <div class="menu-section-title">О программе</div>
+            <div class="menu-item" style="color:var(--text);font-size:10px;"><span class="icon">👤</span> by GeoPlay</div>
+            <div class="menu-item" style="color:var(--text);font-size:10px;"><span class="icon">📦</span> v4.0</div>
+        </div>
+    </div>
+
+    <!-- Модалки -->
+    <div class="modal-overlay" id="newCanvasModal">
+        <div class="modal">
+            <div class="modal-header"><span class="modal-title">🖼️ Новый холст</span><button class="modal-close" data-close="newCanvasModal">✕</button></div>
+            <div style="color:var(--text);font-size:11px;margin-bottom:6px;">Размер:</div>
+            <div class="modal-option selected" data-size="fit"><div class="modal-radio"></div> По экрану</div>
+            <div class="modal-option" data-size="square"><div class="modal-radio"></div> Квадрат 1:1</div>
+            <div class="modal-option" data-size="wide"><div class="modal-radio"></div> Широкий 16:9</div>
+            <div class="modal-option" data-size="story"><div class="modal-radio"></div> Story 9:16</div>
+            <div class="modal-option" data-size="custom"><div class="modal-radio"></div> Свой: <input type="number" id="customW" value="800"> × <input type="number" id="customH" value="600"></div>
+            <div style="color:var(--text);font-size:11px;margin:6px 0;">Фон:</div>
+            <div class="modal-option selected" data-bg="white"><div class="modal-radio"></div> Белый</div>
+            <div class="modal-option" data-bg="dark"><div class="modal-radio"></div> Тёмный</div>
+            <div class="modal-option" data-bg="transparent"><div class="modal-radio"></div> Прозрачный</div>
+            <button class="modal-btn primary" id="createCanvasBtn">🎨 Создать</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="savePhotoModal">
+        <div class="modal">
+            <div class="modal-header"><span class="modal-title">💾 Сохранить фото</span><button class="modal-close" data-close="savePhotoModal">✕</button></div>
+            <div class="modal-option selected" data-photo="png"><div class="modal-radio"></div> PNG</div>
+            <div class="modal-option" data-photo="jpg"><div class="modal-radio"></div> JPG</div>
+            <div class="modal-option" data-photo="webp"><div class="modal-radio"></div> WebP</div>
+            <div class="modal-option" data-photo="bmp"><div class="modal-radio"></div> BMP</div>
+            <div class="modal-option" data-photo="custom"><div class="modal-radio"></div> Свой: <input type="text" id="customFormat" value="dgpew"></div>
+            <button class="modal-btn primary" id="savePhotoBtn">📥 Сохранить</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="saveVideoModal">
+        <div class="modal">
+            <div class="modal-header"><span class="modal-title">🎬 Сохранить видео</span><button class="modal-close" data-close="saveVideoModal">✕</button></div>
+            <div class="modal-option selected" data-video="mp4"><div class="modal-radio"></div> MP4</div>
+            <div class="modal-option" data-video="webm"><div class="modal-radio"></div> WebM</div>
+            <div class="modal-option" data-video="gif"><div class="modal-radio"></div> GIF</div>
+            <div class="modal-option" data-video="apng"><div class="modal-radio"></div> APNG</div>
+            <div class="modal-option" data-video="custom"><div class="modal-radio"></div> Свой: <input type="text" id="customVideoFormat" value="geoplay"></div>
+            <div style="margin-top:6px;display:flex;gap:6px;align-items:center;color:var(--text);font-size:11px;">
+                FPS: <select id="videoFPS" style="padding:3px 4px;border-radius:4px;border:1px solid var(--border);background:var(--btn);color:#fff;font-size:10px;">
+                    <option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12" selected>12</option><option value="15">15</option><option value="20">20</option><option value="24">24</option><option value="30">30</option><option value="60">60</option>
+                </select>
+                <span id="frameCountLabel">Кадров: 0</span>
+            </div>
+            <button class="modal-btn primary" id="saveVideoBtn">🎥 Сохранить</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="aiModal">
+        <div class="modal">
+            <div class="modal-header"><span class="modal-title">✦ AI Рисовальщик</span><button class="modal-close" data-close="aiModal">✕</button></div>
+            <textarea id="aiPrompt" placeholder="Опиши, что нарисовать... (например: кот в космосе, неон)"></textarea>
+            <div style="color:var(--text);font-size:11px;margin:6px 0;">Стиль:</div>
+            <div class="modal-option selected" data-ai-style="realistic"><div class="modal-radio"></div> Реалистичный</div>
+            <div class="modal-option" data-ai-style="cartoon"><div class="modal-radio"></div> Мультяшный</div>
+            <div class="modal-option" data-ai-style="neon"><div class="modal-radio"></div> Неон</div>
+            <div class="modal-option" data-ai-style="sketch"><div class="modal-radio"></div> Скетч</div>
+            <button class="modal-btn ai-btn-modal" id="generateAIBtn">✦ Сгенерировать</button>
+            <div style="color:var(--text);font-size:9px;margin-top:4px;text-align:center;">через Pollinations.ai</div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="rateModal">
+        <div class="modal">
+            <div class="modal-header"><span class="modal-title">⭐ Оценить GeoPaint</span><button class="modal-close" data-close="rateModal">✕</button></div>
+            <div style="text-align:center;margin:8px 0;">
+                <div id="stars" style="font-size:28px;cursor:pointer;">☆ ☆ ☆ ☆ ☆</div>
+                <div style="color:var(--text);font-size:11px;">Твоя оценка: <span id="userRating">—</span></div>
+            </div>
+            <div style="background:var(--card);padding:8px;border-radius:7px;margin:6px 0;">
+                <div style="color:var(--text2);font-size:13px;">📊 Общий рейтинг:</div>
+                <div style="font-size:16px;font-weight:700;color:var(--gold-light);">★ <span id="avgRating">4.2</span>/5</div>
+                <div style="color:var(--text);font-size:10px;">🗳️ <span id="totalRatings">1247</span> оценок · 📝 <span id="totalReviews">438</span> отзывов</div>
+            </div>
+            <button class="modal-btn primary" id="submitRatingBtn">⭐ Отправить</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <div class="modal-header"><span class="modal-title">⚙️ Настройки</span><button class="modal-close" data-close="settingsModal">✕</button></div>
+            <div style="color:var(--text);font-size:11px;">🖥️ Частота интерфейса:</div>
+            <select id="uiRefreshRate" style="width:100%;padding:6px;border-radius:5px;border:1px solid var(--border);background:var(--btn);color:#fff;font-size:11px;margin:4px 0;">
+                <option value="auto">Авто</option><option value="30">30 Гц</option><option value="60" selected>60 Гц</option><option value="90">90 Гц</option><option value="120">120 Гц</option>
+            </select>
+            <div style="color:var(--text);font-size:10px;">🎨 Рисование: 🔒 60 FPS</div>
+            <div style="color:var(--text);font-size:11px;margin-top:4px;">⏱️ Автосохранение:</div>
+            <select id="autoSaveInterval" style="width:100%;padding:6px;border-radius:5px;border:1px solid var(--border);background:var(--btn);color:#fff;font-size:11px;margin:4px 0;">
+                <option value="5">5 сек</option><option value="10" selected>10 сек</option><option value="30">30 сек</option><option value="60">1 мин</option><option value="0">Выкл</option>
+            </select>
+            <button class="modal-btn primary" id="applySettingsBtn">✅ Применить</button>
+        </div>
+    </div>
+
+    <!-- Основное приложение -->
+    <div class="app">
+        <div class="top-bar">
+            <button class="menu-btn" id="menuBtn">☰</button>
+            <span class="top-title">GeoPaint 4.0</span>
+            <button class="ai-btn" id="aiBtn" title="AI Рисовальщик">✦</button>
+            <button class="eraser-btn-top" id="eraserTopBtn" title="Ластик">➖</button>
+        </div>
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="canvas"></canvas>
+            <div class="rotation-indicator" id="rotationIndicator">↻ 0°</div>
+        </div>
+        <div class="anim-panel" id="animPanel">
+            <div class="frame-strip" id="frameStrip"></div>
+            <button class="anim-btn" id="addFrameBtn">＋</button>
+            <button class="anim-btn" id="prevFrameBtn">◀</button>
+            <button class="anim-btn" id="playBtn">▶</button>
+            <button class="anim-btn" id="nextFrameBtn">▶</button>
+            <button class="anim-btn" id="delFrameBtn">🗑</button>
+            <select class="fps-select" id="fpsSelect">
+                <option value="4">4</option><option value="8">8</option><option value="12" selected>12</option><option value="15">15</option><option value="24">24</option><option value="30">30</option><option value="60">60</option>
+            </select>
+        </div>
+        <div class="brush-panel" id="brushPanel"></div>
+        <div class="tool-row">
+            <div class="color-dots" id="colorDots"></div>
+            <input type="color" id="customColor" value="#000000">
+            <span style="font-size:11px;">📏</span>
+            <input type="range" id="sizeSlider" min="1" max="60" value="6">
+            <span class="size-label" id="sizeValue">6</span>
+        </div>
+        <div class="action-row">
+            <button class="action-btn" id="undoBtn">↩️</button>
+            <button class="action-btn" id="saveBtn">💾</button>
+            <button class="action-btn" id="clearBtn">🗑️</button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ====== ЭЛЕМЕНТЫ ======
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const container = document.getElementById('canvasContainer');
+            const brushPanel = document.getElementById('brushPanel');
+            const colorDots = document.getElementById('colorDots');
+            const sizeSlider = document.getElementById('sizeSlider');
+            const sizeValue = document.getElementById('sizeValue');
+            const customColorInput = document.getElementById('customColor');
+            const toast = document.getElementById('toast');
+            const animPanel = document.getElementById('animPanel');
+            const frameStrip = document.getElementById('frameStrip');
+            const playBtn = document.getElementById('playBtn');
+            const fpsSelect = document.getElementById('fpsSelect');
+            const eraserTopBtn = document.getElementById('eraserTopBtn');
+            const rotationIndicator = document.getElementById('rotationIndicator');
+            const particlesCanvas = document.getElementById('particlesCanvas');
+            const particlesCtx = particlesCanvas.getContext('2d');
+
+            // ====== СОСТОЯНИЕ ======
+            let painting = false;
+            let brushType = 'round';
+            let previousBrush = 'round';
+            let currentColor = '#000000';
+            let brushSize = 6;
+            let lastX = 0,
+                lastY = 0;
+            let canvasMode = 'fit';
+            let currentMode = 'draw';
+            let canvasBg = '#FFFFFF';
+            let rotation = 0;
+            let scale = 1;
+            let offsetX = 0,
+                offsetY = 0;
+            let isPanning = false;
+            let panStartX = 0,
+                panStartY = 0;
+            let pinchCenterX = 0,
+                pinchCenterY = 0;
+            let pinchStartDist = 0;
+            let pinchStartScale = 1;
+            let pinchStartRotation = 0;
+            let pinchStartOffsetX = 0,
+                pinchStartOffsetY = 0;
+            let isPinching = false;
+            let fingers = 0;
+
+            // Анимация
+            let frames = [];
+            let currentFrameIndex = 0;
+            let isPlaying = false;
+            let playTimer = null;
+            let animFPS = 12;
+
+            // История
+            const undoStack = [];
+            const MAX_UNDO = 50;
+
+            // Автосохранение
+            let autoSaveInterval = 10;
+            let autoSaveTimer = null;
+
+            // UI частота
+            let uiTargetFPS = 60;
+            let uiFrameInterval = 1000 / 60;
+
+            // Рейтинг
+            let ratings = JSON.parse(localStorage.getItem('geopaint_ratings') ||
+                '{"total":1247,"average":4.2,"distribution":{"5":648,"4":324,"3":150,"2":75,"1":50},"reviews":[],"userRating":0}'
+                );
+
+            // Партиклы
+            let particles = [];
+            let particleAnimId = null;
+            let particleClearTimer = null;
+
+            // ====== КИСТИ (105 с текстурами) ======
+            const brushes = [
+                { type: 'round', icon: '⬤' }, { type: 'square', icon: '⬛' }, { type: 'flat', icon: '▬' },
+                { type: 'marker', icon: '🖊' }, { type: 'spray', icon: '💨' }, { type: 'star', icon: '⭐' },
+                { type: 'cross', icon: '✚' }, { type: 'diamond', icon: '◆' }, { type: 'triangle', icon: '▲' },
+                { type: 'heart', icon: '❤️' }, { type: 'dots', icon: '∵' }, { type: 'dash', icon: '┅' },
+                { type: 'double', icon: '⩶' }, { type: 'calligraphy', icon: '✒' }, { type: 'watercolor',
+                icon: '💧' },
+                { type: 'neon', icon: '⚡' }, { type: 'pixel', icon: '👾' },
+                { type: 'emoji1', icon: '😂' }, { type: 'emoji2', icon: '❤️' }, { type: 'emoji3', icon: '🔥' },
+                { type: 'emoji4', icon: '🥰' }, { type: 'emoji5', icon: '😭' }, { type: 'emoji6', icon: '😡' },
+                { type: 'emoji7', icon: '🥶' }, { type: 'emoji8', icon: '🤯' }, { type: 'emoji9', icon: '😈' },
+                { type: 'emoji10', icon: '👻' },
+                { type: 'pencil', icon: '✏️' }, { type: 'charcoal', icon: '🪨' }, { type: 'oil', icon: '🖌' },
+                { type: 'acrylic', icon: '🎨' }, { type: 'noise', icon: '🔊' }, { type: 'fur', icon: '🧶' },
+                { type: 'grass', icon: '🌿' }, { type: 'water', icon: '💦' }, { type: 'smoke', icon: '💨' },
+                { type: 'fire', icon: '🔥' }, { type: 'lightning', icon: '⚡' }, { type: 'sparks', icon: '✨' },
+                { type: 'rain', icon: '🌧' }, { type: 'bubbles', icon: '🫧' }, { type: 'snow', icon: '❄' },
+                { type: 'confetti', icon: '🎉' }, { type: 'hexagon', icon: '⬡' }, { type: 'pentagon', icon: '⬠' },
+                { type: 'ring', icon: '○' }, { type: 'ringSquare', icon: '□' }, { type: 'ringTriangle',
+                icon: '△' },
+                { type: 'honeycomb', icon: '🍯' }, { type: 'scales', icon: '🐟' }, { type: 'brick', icon: '🧱' },
+                { type: 'mosaic', icon: '🟫' }, { type: 'chain', icon: '⛓' }, { type: 'spiral', icon: '🌀' },
+                { type: 'target', icon: '🎯' }, { type: 'glitch', icon: '📺' }, { type: 'shadow', icon: '👤' },
+                { type: 'blur', icon: '🌫' }, { type: 'gradient', icon: '🌈' }, { type: 'grid', icon: '📐' },
+                { type: 'stamp', icon: '🪙' },
+            ];
+
+            // Добавляем оставшиеся 50 кистей с уникальными текстурами
+            const extraBrushes = [
+                { type: 'zigzag', icon: '📈' }, { type: 'wave', icon: '🌊' }, { type: 'leaf', icon: '🍃' },
+                { type: 'flower', icon: '🌸' }, { type: 'feather', icon: '🪶' }, { type: 'crystal', icon: '💎' },
+                { type: 'web', icon: '🕸' }, { type: 'scratches', icon: '🐾' }, { type: 'droplets', icon: '💧' },
+                { type: 'smudge', icon: '☁' }, { type: 'laser', icon: '🔫' }, { type: 'plasma', icon: '🟣' },
+                { type: 'circuit', icon: '🔌' }, { type: 'cracks', icon: '💔' }, { type: 'vines', icon: '🌱' },
+                { type: 'stars', icon: '🌟' }, { type: 'moon', icon: '🌙' }, { type: 'sun', icon: '☀' },
+                { type: 'cloud', icon: '☁' }, { type: 'lightningBolt', icon: '🗲' },
+                { type: 'music', icon: '🎵' }, { type: 'paw', icon: '🐾' }, { type: 'fish', icon: '🐟' },
+                { type: 'bird', icon: '🐦' }, { type: 'butterfly', icon: '🦋' },
+                { type: 'dna', icon: '🧬' }, { type: 'atom', icon: '⚛' }, { type: 'gear', icon: '⚙' },
+                { type: 'lock', icon: '🔒' }, { type: 'key', icon: '🔑' },
+                { type: 'crown', icon: '👑' }, { type: 'sword', icon: '⚔' }, { type: 'shield', icon: '🛡' },
+                { type: 'arrow', icon: '➤' }, { type: 'flag', icon: '🚩' },
+                { type: 'ribbon', icon: '🎀' }, { type: 'gift', icon: '🎁' }, { type: 'balloon', icon: '🎈' },
+                { type: 'eye', icon: '👁' }, { type: 'lips', icon: '👄' },
+                { type: 'bone', icon: '🦴' }, { type: 'footprint', icon: '👣' }, { type: 'magnet', icon: '🧲' },
+                { type: 'pill', icon: '💊' }, { type: 'syringe', icon: '💉' },
+                { type: 'bomb', icon: '💣' }, { type: 'hourglass', icon: '⏳' }, { type: 'bulb', icon: '💡' },
+                { type: 'telescope', icon: '🔭' }, { type: 'microscope', icon: '🔬' },
+            ];
+            brushes.push(...extraBrushes);
+
+            // Палитра
+            const palette = ['#000000', '#FFFFFF', '#c0392b', '#c9a84c', '#3a6a4a', '#3a4a6a', '#4a3a5a',
+                '#8a5a3a', '#5a5a5a', '#e6c34a', '#ff6b6b', '#54a0ff', '#5f27cd', '#01a3a4', '#10ac84',
+                '#2ed573', '#ff6348', '#eccc68'
+            ];
+
+            // ====== ТОСТ ======
+            let toastTimer;
+
+            function showToast(msg) {
+                if (toastTimer) clearTimeout(toastTimer);
+                toast.textContent = msg;
+                toast.classList.add('show');
+                toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+            }
+
+            // ====== ХОЛСТ ======
+            function getContainerSize() {
+                const rect = container.getBoundingClientRect();
+                return { w: rect.width, h: rect.height };
+            }
+
+            function getTargetSize() {
+                const { w, h } = getContainerSize();
+                switch (canvasMode) {
+                    case 'square':
+                        const s = Math.min(w, h);
+                        return { w: s, h: s };
+                    case 'wide':
+                        return { w, h: w * 0.5625 };
+                    case 'story':
+                        return { w, h: w * 1.7778 };
+                    case 'custom':
+                        return { w: parseInt(document.getElementById('customW')?.value || 800), h: parseInt(document
+                                .getElementById('customH')?.value || 600) };
+                    default:
+                        return { w, h };
+                }
+            }
+
+            function resizeCanvas() {
+                const target = getTargetSize();
+                const w = Math.floor(target.w);
+                const h = Math.floor(target.h);
+                if (canvas.width !== w || canvas.height !== h) {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = canvas.width;
+                    tempCanvas.height = canvas.height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(canvas, 0, 0);
+                    canvas.width = w;
+                    canvas.height = h;
+                    canvas.style.width = w + 'px';
+                    canvas.style.height = h + 'px';
+                    canvas.style.marginLeft = (-w / 2) + 'px';
+                    canvas.style.marginTop = (-h / 2) + 'px';
+                    ctx.fillStyle = canvasBg;
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, 0, 0, w, h);
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.imageSmoothingEnabled = true;
+                    offsetX = 0;
+                    offsetY = 0;
+                    scale = 1;
+                    rotation = 0;
+                    updateTransform();
+                }
+            }
+
+            function updateTransform() {
+                canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale})`;
+                rotationIndicator.textContent = `↻ ${Math.round(rotation)}°`;
+                rotationIndicator.style.display = rotation !== 0 ? 'block' : 'none';
+            }
+
+            function setCanvasBg(color) {
+                canvasBg = color;
+                ctx.fillStyle = color;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                if (currentMode === 'animate') {
+                    frames[currentFrameIndex] = canvas.toDataURL();
+                    updateFrameThumbnails();
+                }
+            }
+
+            function saveUndo() {
+                undoStack.push(canvas.toDataURL());
+                if (undoStack.length > MAX_UNDO) undoStack.shift();
+            }
+
+            function undo() {
+                if (undoStack.length === 0) { showToast('Нечего отменять'); return; }
+                const img = new Image();
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    if (currentMode === 'animate') { frames[currentFrameIndex] = canvas.toDataURL();
+                        updateFrameThumbnails(); }
+                    showToast('↩️ Отменено');
+                };
+                img.src = undoStack.pop();
+            }
+
+            function clearCanvas() {
+                saveUndo();
+                ctx.fillStyle = canvasBg;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                if (currentMode === 'animate') { frames[currentFrameIndex] = canvas.toDataURL();
+                    updateFrameThumbnails(); }
+                showToast('🗑️ Очищено');
+            }
+
+            function initCanvas() {
+                resizeCanvas();
+                ctx.fillStyle = canvasBg;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                saveUndo();
+            }
+
+            // ====== РИСОВАНИЕ ======
+            function drawStar(cx, cy, outerR, innerR, points) {
+                ctx.beginPath();
+                for (let i = 0; i < points * 2; i++) {
+                    const r = i % 2 === 0 ? outerR : innerR;
+                    const angle = (i * Math.PI) / points - Math.PI / 2;
+                    if (i === 0) ctx.moveTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+                    else ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            function drawHeart(cx, cy, size) {
+                const s = size * 0.5;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy + s * 0.7);
+                ctx.bezierCurveTo(cx - s, cy - s * 0.5, cx - s, cy - s * 1.2, cx, cy - s * 0.9);
+                ctx.bezierCurveTo(cx + s, cy - s * 1.2, cx + s, cy - s * 0.5, cx, cy + s * 0.7);
+                ctx.fill();
+            }
+
+            function drawBrush(x, y, size, color, type) {
+                ctx.save();
+                ctx.fillStyle = color;
+                ctx.strokeStyle = color;
+                const half = size / 2;
+
+                // Смайлики
+                if (type.startsWith('emoji')) {
+                    const emojis = ['😂', '❤️', '🔥', '🥰', '😭', '😡', '🥶', '🤯', '😈', '👻'];
+                    const idx = parseInt(type.replace('emoji', '')) - 1;
+                    ctx.font = `${size}px serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(emojis[idx] || '😀', x, y);
+                    ctx.restore();
+                    return;
+                }
+
+                switch (type) {
+                    case 'round':
+                        ctx.beginPath();
+                        ctx.arc(x, y, half, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'square':
+                        ctx.fillRect(x - half, y - half, size, size);
+                        break;
+                    case 'flat':
+                        ctx.fillRect(x - size, y - half / 1.5, size * 2, size / 1.5);
+                        break;
+                    case 'marker':
+                        ctx.globalAlpha = 0.6;
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 0.85, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.globalAlpha = 1;
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 0.25, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'spray':
+                        for (let i = 0; i < size * 3; i++) {
+                            const a = Math.random() * Math.PI * 2,
+                                d = Math.random() * half;
+                            ctx.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1, 1);
+                        }
+                        break;
+                    case 'star':
+                        drawStar(x, y, half, half * 0.4, 5);
+                        break;
+                    case 'cross':
+                        ctx.lineWidth = Math.max(2, size / 4);
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y);
+                        ctx.lineTo(x + half, y);
+                        ctx.moveTo(x, y - half);
+                        ctx.lineTo(x, y + half);
+                        ctx.stroke();
+                        break;
+                    case 'diamond':
+                        ctx.beginPath();
+                        ctx.moveTo(x, y - half);
+                        ctx.lineTo(x + half, y);
+                        ctx.lineTo(x, y + half);
+                        ctx.lineTo(x - half, y);
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                    case 'triangle':
+                        ctx.beginPath();
+                        ctx.moveTo(x, y - half);
+                        ctx.lineTo(x + half, y + half);
+                        ctx.lineTo(x - half, y + half);
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                    case 'heart':
+                        drawHeart(x, y, size);
+                        break;
+                    case 'dots':
+                        for (let i = -2; i <= 2; i++) { ctx.beginPath();
+                            ctx.arc(x + i * size * 0.35, y, size * 0.14, 0, Math.PI * 2);
+                            ctx.fill(); }
+                        break;
+                    case 'dash':
+                        ctx.setLineDash([size * 0.7, size * 0.5]);
+                        ctx.lineWidth = Math.max(2, size / 3);
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y);
+                        ctx.lineTo(x + half, y);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        break;
+                    case 'double':
+                        ctx.lineWidth = Math.max(2, size / 6);
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y - size * 0.2);
+                        ctx.lineTo(x + half, y - size * 0.2);
+                        ctx.moveTo(x - half, y + size * 0.2);
+                        ctx.lineTo(x + half, y + size * 0.2);
+                        ctx.stroke();
+                        break;
+                    case 'calligraphy':
+                        ctx.lineWidth = size / 3;
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y - half);
+                        ctx.lineTo(x + half, y + half);
+                        ctx.stroke();
+                        ctx.lineWidth = size / 6;
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y + half);
+                        ctx.lineTo(x + half, y - half);
+                        ctx.stroke();
+                        break;
+                    case 'watercolor':
+                        ctx.globalAlpha = 0.25;
+                        for (let i = 0; i < 5; i++) { ctx.beginPath();
+                            ctx.arc(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size, half * (0.4 +
+                                Math.random() * 0.6), 0, Math.PI * 2);
+                            ctx.fill(); }
+                        ctx.globalAlpha = 1;
+                        break;
+                    case 'neon':
+                        ctx.shadowColor = color;
+                        ctx.shadowBlur = size * 1.5;
+                        ctx.lineWidth = Math.max(2, size / 3);
+                        ctx.strokeStyle = '#fff';
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 0.6, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.shadowBlur = size * 2;
+                        ctx.strokeStyle = color;
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 0.6, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.shadowBlur = 0;
+                        break;
+                    case 'pixel':
+                        const ps = Math.max(3, size / 4);
+                        const cols = Math.floor(size / ps);
+                        for (let ix = 0; ix < cols; ix++) { for (let iy = 0; iy < cols; iy++) { if (Math.random() >
+                                0.55) ctx.fillRect(x - half + ix * ps, y - half + iy * ps, ps, ps); } }
+                        break;
+                    case 'pencil':
+                        ctx.lineWidth = size / 3;
+                        ctx.globalAlpha = 0.8;
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y);
+                        ctx.lineTo(x + half, y);
+                        ctx.stroke();
+                        ctx.globalAlpha = 1;
+                        break;
+                    case 'charcoal':
+                        ctx.globalAlpha = 0.5;
+                        for (let i = 0; i < 8; i++) { ctx.beginPath();
+                            ctx.arc(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size, half * 0.5, 0,
+                                Math.PI * 2);
+                            ctx.fill(); }
+                        ctx.globalAlpha = 1;
+                        break;
+                    case 'lightning':
+                    case 'lightningBolt':
+                        ctx.lineWidth = Math.max(1, size / 5);
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y - half);
+                        ctx.lineTo(x + half * 0.3, y - half * 0.1);
+                        ctx.lineTo(x - half * 0.2, y + half * 0.1);
+                        ctx.lineTo(x + half, y + half);
+                        ctx.stroke();
+                        break;
+                    case 'sparks':
+                        for (let i = 0; i < 8; i++) { const a = Math.random() * Math.PI * 2,
+                                d = Math.random() * half;
+                            ctx.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 2, 2); }
+                        break;
+                    case 'snow':
+                        ctx.fillStyle = '#fff';
+                        ctx.beginPath();
+                        ctx.arc(x, y, size * 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'bubbles':
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 1;
+                        for (let i = 0; i < 4; i++) { ctx.beginPath();
+                            ctx.arc(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size, size * 0.25, 0,
+                                Math.PI * 2);
+                            ctx.stroke(); }
+                        break;
+                    case 'confetti':
+                        for (let i = 0; i < 6; i++) { ctx.fillStyle = `hsl(${Math.random()*360},70%,60%)`;
+                            ctx.fillRect(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size, 3, 6); }
+                        break;
+                    case 'hexagon':
+                        ctx.beginPath();
+                        for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3;
+                            ctx.lineTo(x + Math.cos(a) * half, y + Math.sin(a) * half); }
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                    case 'ring':
+                        ctx.lineWidth = Math.max(1, size / 6);
+                        ctx.beginPath();
+                        ctx.arc(x, y, half, 0, Math.PI * 2);
+                        ctx.stroke();
+                        break;
+                    case 'ringSquare':
+                        ctx.lineWidth = Math.max(1, size / 6);
+                        ctx.strokeRect(x - half, y - half, size, size);
+                        break;
+                    case 'ringTriangle':
+                        ctx.lineWidth = Math.max(1, size / 6);
+                        ctx.beginPath();
+                        ctx.moveTo(x, y - half);
+                        ctx.lineTo(x + half, y + half);
+                        ctx.lineTo(x - half, y + half);
+                        ctx.closePath();
+                        ctx.stroke();
+                        break;
+                    case 'spiral':
+                        ctx.lineWidth = Math.max(1, size / 7);
+                        ctx.beginPath();
+                        for (let i = 0; i < 25; i++) { const a = i * 0.6,
+                                r = half * i / 25;
+                            ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); }
+                        ctx.stroke();
+                        break;
+                    case 'target':
+                        ctx.lineWidth = 1;
+                        for (let r = half; r > 0; r -= half / 3) { ctx.beginPath();
+                            ctx.arc(x, y, r, 0, Math.PI * 2);
+                            ctx.stroke(); }
+                        break;
+                    case 'glitch':
+                        ctx.fillStyle = color;
+                        ctx.fillRect(x - half, y, size, Math.max(1, size / 8));
+                        ctx.fillStyle = '#fff';
+                        ctx.fillRect(x - half, y - size * 0.3, size * 0.6, Math.max(1, size / 8));
+                        break;
+                    case 'blur':
+                        ctx.globalAlpha = 0.3;
+                        ctx.beginPath();
+                        ctx.arc(x, y, half, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.globalAlpha = 1;
+                        break;
+                    case 'noise':
+                        for (let i = 0; i < size * 4; i++) {
+                            ctx.fillRect(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size, 1, 1);
+                        }
+                        break;
+                    case 'fur':
+                        for (let i = 0; i < size * 2; i++) {
+                            const a = Math.random() * Math.PI * 2;
+                            const d = Math.random() * half;
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                            ctx.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        }
+                        break;
+                    case 'grass':
+                        for (let i = -3; i <= 3; i++) {
+                            ctx.beginPath();
+                            ctx.moveTo(x + i * size * 0.3, y);
+                            ctx.lineTo(x + i * size * 0.3 + (Math.random() - 0.5) * size, y - half - Math.random() *
+                                half);
+                            ctx.lineWidth = Math.max(1, size / 8);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 'water':
+                        ctx.globalAlpha = 0.4;
+                        for (let i = 0; i < 4; i++) {
+                            ctx.beginPath();
+                            ctx.arc(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size, half * 0.6, 0,
+                                Math.PI * 2);
+                            ctx.fill();
+                        }
+                        ctx.globalAlpha = 1;
+                        break;
+                    case 'smoke':
+                        ctx.globalAlpha = 0.2;
+                        for (let i = 0; i < 6; i++) {
+                            ctx.beginPath();
+                            ctx.arc(x + (Math.random() - 0.5) * size * 1.5, y + (Math.random() - 0.5) * size * 1.5, half *
+                                0.7, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        ctx.globalAlpha = 1;
+                        break;
+                    case 'fire':
+                        for (let i = 0; i < 8; i++) {
+                            const fy = y - Math.random() * size;
+                            const fx = x + (Math.random() - 0.5) * size * 0.6;
+                            ctx.fillStyle = `hsl(${Math.random()*30+10},100%,${50+Math.random()*50}%)`;
+                            ctx.beginPath();
+                            ctx.arc(fx, fy, size * 0.3, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                    case 'rain':
+                        ctx.lineWidth = 1;
+                        for (let i = 0; i < 6; i++) {
+                            const rx = x + (Math.random() - 0.5) * size;
+                            ctx.beginPath();
+                            ctx.moveTo(rx, y - half);
+                            ctx.lineTo(rx, y + half);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 'honeycomb':
+                        const hcSize = size / 4;
+                        for (let row = -2; row <= 2; row++) {
+                            for (let col = -2; col <= 2; col++) {
+                                const hx = x + col * hcSize * 1.8 + (row % 2) * hcSize * 0.9;
+                                const hy = y + row * hcSize * 1.6;
+                                ctx.beginPath();
+                                for (let i = 0; i < 6; i++) {
+                                    const a = i * Math.PI / 3;
+                                    ctx.lineTo(hx + Math.cos(a) * hcSize, hy + Math.sin(a) * hcSize);
+                                }
+                                ctx.closePath();
+                                ctx.stroke();
+                            }
+                        }
+                        break;
+                    case 'scales':
+                        for (let i = 0; i < 5; i++) {
+                            const sx = x + (i - 2) * size * 0.4;
+                            ctx.beginPath();
+                            ctx.arc(sx, y, size * 0.3, Math.PI, 0);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 'brick':
+                        const bw = size / 3,
+                            bh = size / 4;
+                        for (let row = -2; row <= 2; row++) {
+                            for (let col = -2; col <= 2; col++) {
+                                const bx = x + col * bw + (row % 2) * bw / 2;
+                                const by = y + row * bh;
+                                ctx.strokeRect(bx, by, bw * 0.9, bh * 0.9);
+                            }
+                        }
+                        break;
+                    case 'mosaic':
+                        const ms = size / 5;
+                        for (let ix = -2; ix <= 2; ix++) {
+                            for (let iy = -2; iy <= 2; iy++) {
+                                ctx.fillStyle = `hsl(${Math.random()*360},60%,${40+Math.random()*40}%)`;
+                                ctx.fillRect(x + ix * ms, y + iy * ms, ms * 0.9, ms * 0.9);
+                            }
+                        }
+                        break;
+                    case 'chain':
+                        ctx.lineWidth = Math.max(1, size / 8);
+                        for (let i = -2; i <= 2; i++) {
+                            ctx.beginPath();
+                            ctx.arc(x + i * size * 0.35, y, size * 0.15, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 'shadow':
+                        ctx.globalAlpha = 0.3;
+                        ctx.fillStyle = '#000';
+                        ctx.beginPath();
+                        ctx.arc(x + size * 0.2, y + size * 0.2, half, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.globalAlpha = 1;
+                        break;
+                    case 'gradient':
+                        const grad = ctx.createRadialGradient(x, y, 0, x, y, half);
+                        grad.addColorStop(0, color);
+                        grad.addColorStop(1, 'transparent');
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.arc(x, y, half, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'grid':
+                        ctx.lineWidth = 0.5;
+                        const gs = size / 5;
+                        for (let ix = -3; ix <= 3; ix++) {
+                            ctx.beginPath();
+                            ctx.moveTo(x + ix * gs, y - size);
+                            ctx.lineTo(x + ix * gs, y + size);
+                            ctx.stroke();
+                        }
+                        for (let iy = -3; iy <= 3; iy++) {
+                            ctx.beginPath();
+                            ctx.moveTo(x - size, y + iy * gs);
+                            ctx.lineTo(x + size, y + iy * gs);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 'stamp':
+                        ctx.fillStyle = color;
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 0.7, 0, Math.PI * 2);
+                        ctx.stroke();
+                        break;
+                    case 'zigzag':
+                        ctx.lineWidth = Math.max(1, size / 6);
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y - half);
+                        for (let i = 0; i < 5; i++) {
+                            ctx.lineTo(x - half + (i + 0.5) * size / 5, y + half * (i % 2 === 0 ? -1 : 1));
+                        }
+                        ctx.stroke();
+                        break;
+                    case 'wave':
+                        ctx.lineWidth = Math.max(1, size / 6);
+                        ctx.beginPath();
+                        for (let i = 0; i < 20; i++) {
+                            const wx = x - half + i * size / 20;
+                            const wy = y + Math.sin(i * 0.8) * half * 0.6;
+                            ctx.lineTo(wx, wy);
+                        }
+                        ctx.stroke();
+                        break;
+                    case 'leaf':
+                        ctx.beginPath();
+                        ctx.ellipse(x, y, half * 0.8, half * 0.3, 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.moveTo(x, y - half * 0.3);
+                        ctx.lineTo(x, y + half * 0.3);
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                        break;
+                    case 'flower':
+                        for (let i = 0; i < 5; i++) {
+                            const a = (i * Math.PI * 2) / 5;
+                            ctx.beginPath();
+                            ctx.arc(x + Math.cos(a) * half * 0.5, y + Math.sin(a) * half * 0.5, half * 0.4, 0, Math.PI *
+                                2);
+                            ctx.fill();
+                        }
+                        ctx.fillStyle = '#ff0';
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 0.2, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'feather':
+                        ctx.lineWidth = 0.5;
+                        for (let i = 0; i < 10; i++) {
+                            const fy = y + (i - 5) * size * 0.1;
+                            const fx = x + Math.random() * size * 0.3;
+                            ctx.beginPath();
+                            ctx.moveTo(x, fy);
+                            ctx.lineTo(fx, fy + (Math.random() - 0.5) * size * 0.3);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 'crystal':
+                        ctx.beginPath();
+                        ctx.moveTo(x, y - half);
+                        ctx.lineTo(x + half * 0.7, y);
+                        ctx.lineTo(x, y + half);
+                        ctx.lineTo(x - half * 0.7, y);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                        break;
+                    case 'web':
+                        ctx.lineWidth = 0.5;
+                        for (let i = 0; i < 4; i++) {
+                            const wa = (i * Math.PI) / 4;
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                            ctx.lineTo(x + Math.cos(wa) * half, y + Math.sin(wa) * half);
+                            ctx.stroke();
+                        }
+                        for (let r = half * 0.3; r < half; r += half * 0.3) {
+                            ctx.beginPath();
+                            ctx.arc(x, y, r, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 'scratches':
+                        ctx.lineWidth = Math.max(1, size / 8);
+                        for (let i = 0; i < 5; i++) {
+                            ctx.beginPath();
+                            ctx.moveTo(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size);
+                            ctx.lineTo(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size);
+                            ctx.stroke();
+                        }
+                        break;
+                    case 'droplets':
+                        for (let i = 0; i < 7; i++) {
+                            ctx.beginPath();
+                            ctx.ellipse(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size, size * 0.1,
+                                size * 0.15, 0, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                    case 'smudge':
+                        ctx.globalAlpha = 0.4;
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 1.2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.globalAlpha = 1;
+                        break;
+                    case 'laser':
+                        ctx.strokeStyle = '#f00';
+                        ctx.lineWidth = Math.max(2, size / 3);
+                        ctx.shadowColor = '#f00';
+                        ctx.shadowBlur = size;
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y);
+                        ctx.lineTo(x + half, y);
+                        ctx.stroke();
+                        ctx.shadowBlur = 0;
+                        break;
+                    case 'plasma':
+                        for (let i = 0; i < 10; i++) {
+                            ctx.fillStyle = `hsl(${280+Math.random()*40},100%,${50+Math.random()*50}%)`;
+                            ctx.beginPath();
+                            ctx.arc(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size, size * 0.2, 0,
+                                Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                    case 'circuit':
+                        ctx.lineWidth = Math.max(1, size / 6);
+                        ctx.strokeRect(x - half, y - half, half, half);
+                        ctx.fillRect(x + half * 0.3, y - 2, 3, 3);
+                        ctx.stroke();
+                        break;
+                    case 'cracks':
+                        ctx.lineWidth = Math.max(1, size / 8);
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        for (let i = 0; i < 4; i++) {
+                            ctx.lineTo(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size);
+                        }
+                        ctx.stroke();
+                        break;
+                    case 'vines':
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = '#3a6a3a';
+                        ctx.beginPath();
+                        ctx.moveTo(x, y - half);
+                        ctx.quadraticCurveTo(x + size * 0.5, y, x + half, y + half);
+                        ctx.stroke();
+                        break;
+                    case 'stars':
+                        for (let i = 0; i < 3; i++) {
+                            drawStar(x + (Math.random() - 0.5) * size, y + (Math.random() - 0.5) * size, size * 0.2,
+                                size * 0.08, 5);
+                        }
+                        break;
+                    case 'moon':
+                        ctx.beginPath();
+                        ctx.arc(x, y, half, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = canvasBg;
+                        ctx.beginPath();
+                        ctx.arc(x + half * 0.4, y - half * 0.2, half * 0.7, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'sun':
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+                        for (let i = 0; i < 8; i++) {
+                            const sa = (i * Math.PI * 2) / 8;
+                            ctx.beginPath();
+                            ctx.moveTo(x + Math.cos(sa) * half * 0.5, y + Math.sin(sa) * half * 0.5);
+                            ctx.lineTo(x + Math.cos(sa) * half, y + Math.sin(sa) * half);
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        }
+                        break;
+                    case 'cloud':
+                        ctx.beginPath();
+                        ctx.arc(x - half * 0.3, y, half * 0.5, 0, Math.PI * 2);
+                        ctx.arc(x + half * 0.3, y, half * 0.6, 0, Math.PI * 2);
+                        ctx.arc(x, y - half * 0.4, half * 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'music':
+                        ctx.font = `${size}px serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('♪', x, y);
+                        break;
+                    case 'paw':
+                        ctx.beginPath();
+                        ctx.arc(x, y - half * 0.4, half * 0.25, 0, Math.PI * 2);
+                        ctx.fill();
+                        for (let i = 0; i < 3; i++) {
+                            ctx.beginPath();
+                            ctx.arc(x - half * 0.6 + i * half * 0.6, y + half * 0.3, half * 0.2, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        ctx.beginPath();
+                        ctx.arc(x, y + half * 0.6, half * 0.4, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'fish':
+                        ctx.beginPath();
+                        ctx.ellipse(x, y, half, half * 0.5, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.moveTo(x + half, y);
+                        ctx.lineTo(x + half * 1.4, y - half * 0.4);
+                        ctx.lineTo(x + half * 1.4, y + half * 0.4);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.fillStyle = '#fff';
+                        ctx.beginPath();
+                        ctx.arc(x - half * 0.3, y - half * 0.15, half * 0.15, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'bird':
+                        ctx.lineWidth = Math.max(1, size / 6);
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y);
+                        ctx.quadraticCurveTo(x - half * 0.3, y - half, x, y);
+                        ctx.quadraticCurveTo(x + half * 0.3, y - half, x + half, y);
+                        ctx.stroke();
+                        break;
+                    case 'butterfly':
+                        ctx.beginPath();
+                        ctx.ellipse(x - half * 0.3, y - half * 0.4, half * 0.4, half * 0.6, -0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.ellipse(x + half * 0.3, y - half * 0.4, half * 0.4, half * 0.6, 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'dna':
+                        ctx.lineWidth = 1.5;
+                        for (let i = 0; i < 8; i++) {
+                            const dx = x - half + i * size / 8;
+                            const dy = y + Math.sin(i * 1.5) * half * 0.6;
+                            ctx.beginPath();
+                            ctx.arc(dx, dy, size * 0.08, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                    case 'atom':
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.arc(x, y, half, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.ellipse(x, y, half, half * 0.3, 0.5, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.ellipse(x, y, half, half * 0.3, -0.5, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.arc(x, y, size * 0.15, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 'gear':
+                        ctx.lineWidth = Math.max(1, size / 8);
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 0.6, 0, Math.PI * 2);
+                        ctx.stroke();
+                        for (let i = 0; i < 6; i++) {
+                            const ga = (i * Math.PI * 2) / 6;
+                            ctx.fillRect(x + Math.cos(ga) * half * 0.6 - size * 0.1, y + Math.sin(ga) * half * 0.6 -
+                                size * 0.1, size * 0.2, size * 0.2);
+                        }
+                        break;
+                    case 'lock':
+                        ctx.fillRect(x - half * 0.6, y, half * 1.2, half * 0.8);
+                        ctx.beginPath();
+                        ctx.arc(x, y, half * 0.5, Math.PI, 0);
+                        ctx.lineWidth = Math.max(2, size / 5);
+                        ctx.stroke();
+                        break;
+                    case 'key':
+                        ctx.lineWidth = Math.max(1, size / 5);
+                        ctx.beginPath();
+                        ctx.arc(x - half * 0.5, y, half * 0.4, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + half, y);
+                        ctx.stroke();
+                        break;
+                    case 'crown':
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y + half * 0.3);
+                        ctx.lineTo(x - half * 0.7, y - half * 0.3);
+                        ctx.lineTo(x - half * 0.2, y);
+                        ctx.lineTo(x, y - half);
+                        ctx.lineTo(x + half * 0.2, y);
+                        ctx.lineTo(x + half * 0.7, y - half * 0.3);
+                        ctx.lineTo(x + half, y + half * 0.3);
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                    case 'sword':
+                        ctx.lineWidth = Math.max(1, size / 5);
+                        ctx.beginPath();
+                        ctx.moveTo(x, y - half);
+                        ctx.lineTo(x, y + half);
+                        ctx.stroke();
+                        ctx.fillRect(x - half * 0.3, y + half, half * 0.6, half * 0.3);
+                        break;
+                    case 'shield':
+                        ctx.beginPath();
+                        ctx.moveTo(x, y - half);
+                        ctx.lineTo(x + half, y - half * 0.3);
+                        ctx.lineTo(x + half, y + half * 0.3);
+                        ctx.lineTo(x, y + half);
+                        ctx.lineTo(x - half, y + half * 0.3);
+                        ctx.lineTo(x - half, y - half * 0.3);
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                    case 'arrow':
+                        ctx.lineWidth = Math.max(1, size / 5);
+                        ctx.beginPath();
+                        ctx.moveTo(x - half, y);
+                        ctx.lineTo(x + half, y);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(x + half, y);
+                        ctx.lineTo(x + half * 0.5, y - half * 0.5);
+                        ctx.lineTo(x + half * 0.5, y + half * 0.5);
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                    case 'flag':
+                        ctx.fillRect(x - 1, y - half, 2, size);
+                        ctx.beginPath();
+                        ctx.moveTo(x, y - half);
+                        ctx.lineTo(x + half, y - half * 0.6);
+                        ctx.lineTo(x, y - half * 0.15);
+                        ctx.fill();
+                        break;
+                    default:
+                        ctx.beginPath();
+                        ctx.arc(x, y, half, 0, Math.PI * 2);
+                        ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            function drawLine(fromX, fromY, toX, toY) {
+                const dx = toX - fromX,
+                    dy = toY - fromY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const step = brushType === 'spray' ? brushSize * 0.5 : brushSize * 0.15;
+                if (dist < step) { drawBrush(toX, toY, brushSize, currentColor, brushType); return; }
+                const steps = Math.floor(dist / step);
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    drawBrush(fromX + dx * t, fromY + dy * t, brushSize, currentColor, brushType);
+                }
+            }
+
+            // ====== КООРДИНАТЫ С УЧЁТОМ ТРАНСФОРМАЦИЙ ======
+            function getCanvasPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                let cx, cy;
+                if (e.touches && e.touches.length > 0) { cx = e.touches[0].clientX;
+                    cy = e.touches[0].clientY; } else if (e.changedTouches && e.changedTouches.length > 0) { cx = e
+                        .changedTouches[0].clientX;
+                    cy = e.changedTouches[0].clientY; } else { cx = e.clientX;
+                    cy = e.clientY; }
+
+                // Центр canvas на экране
+                const centerX = rect.left + rect.width / 2 + offsetX;
+                const centerY = rect.top + rect.height / 2 + offsetY;
+
+                // Обратный поворот и масштаб
+                const dx = cx - centerX;
+                const dy = cy - centerY;
+                const rotRad = -rotation * Math.PI / 180;
+                const cos = Math.cos(rotRad);
+                const sin = Math.sin(rotRad);
+                const rx = dx * cos - dy * sin;
+                const ry = dx * sin + dy * cos;
+                const sx = rx / scale;
+                const sy = ry / scale;
+
+                return {
+                    x: sx + canvas.width / 2,
+                    y: sy + canvas.height / 2
+                };
+            }
+
+            // ====== СОБЫТИЯ ======
+            function onPointerDown(e) {
+                e.preventDefault();
+
+                if (e.touches && e.touches.length === 2) {
+                    isPinching = true;
+                    fingers = 2;
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    pinchStartDist = Math.sqrt(dx * dx + dy * dy);
+                    pinchStartScale = scale;
+                    pinchStartRotation = Math.atan2(dy, dx) * 180 / Math.PI - rotation;
+                    pinchStartOffsetX = offsetX;
+                    pinchStartOffsetY = offsetY;
+                    pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                    pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                    return;
+                }
+
+                if (e.touches && e.touches.length === 3) { undo(); return; }
+
+                if (e.button === 2) {
+                    isPanning = true;
+                    panStartX = e.clientX - offsetX;
+                    panStartY = e.clientY - offsetY;
+                    return;
+                }
+
+                saveUndo();
+                painting = true;
+                const pos = getCanvasPos(e);
+                lastX = pos.x;
+                lastY = pos.y;
+                drawBrush(lastX, lastY, brushSize, currentColor, brushType);
+            }
+
+            function onPointerMove(e) {
+                e.preventDefault();
+
+                if (isPinching && e.touches && e.touches.length === 2) {
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const newScale = pinchStartScale * (dist / pinchStartDist);
+                    scale = Math.max(0.1, Math.min(5, newScale));
+                    rotation = Math.atan2(dy, dx) * 180 / Math.PI - pinchStartRotation;
+                    offsetX = pinchStartOffsetX + ((e.touches[0].clientX + e.touches[1].clientX) / 2 - pinchCenterX);
+                    offsetY = pinchStartOffsetY + ((e.touches[0].clientY + e.touches[1].clientY) / 2 - pinchCenterY);
+                    updateTransform();
+                    return;
+                }
+
+                if (isPanning) {
+                    offsetX = e.clientX - panStartX;
+                    offsetY = e.clientY - panStartY;
+                    updateTransform();
+                    return;
+                }
+
+                if (!painting) return;
+                const pos = getCanvasPos(e);
+                drawLine(lastX, lastY, pos.x, pos.y);
+                lastX = pos.x;
+                lastY = pos.y;
+            }
+
+            function onPointerUp() {
+                if (isPinching) { isPinching = false;
+                    fingers = 0; return; }
+                if (isPanning) { isPanning = false; return; }
+                if (painting) {
+                    painting = false;
+                    if (currentMode === 'animate') { frames[currentFrameIndex] = canvas.toDataURL();
+                        updateFrameThumbnails(); }
+                }
+            }
+
+            canvas.addEventListener('mousedown', onPointerDown);
+            canvas.addEventListener('mousemove', onPointerMove);
+            canvas.addEventListener('mouseup', onPointerUp);
+            canvas.addEventListener('mouseleave', onPointerUp);
+            canvas.addEventListener('contextmenu', e => e.preventDefault());
+            canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+            canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+            canvas.addEventListener('touchend', onPointerUp);
+            canvas.addEventListener('touchcancel', onPointerUp);
+            canvas.addEventListener('wheel', e => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                scale = Math.max(0.1, Math.min(5, scale * delta));
+                updateTransform();
+            });
+
+            // ====== АНИМАЦИЯ ======
+            function setMode(mode) {
+                currentMode = mode;
+                if (mode === 'draw') { animPanel.classList.remove('visible');
+                    stopPlayback(); } else { animPanel.classList.add('visible'); if (frames.length === 0) addFrame();
+                    loadFrame(currentFrameIndex); }
+            }
+
+            function addFrame() {
+                const data = canvas.toDataURL();
+                frames.splice(currentFrameIndex + 1, 0, data);
+                currentFrameIndex++;
+                renderFrameStrip();
+            }
+
+            function loadFrame(index) {
+                if (index < 0 || index >= frames.length) return;
+                currentFrameIndex = index;
+                const img = new Image();
+                img.onload = () => { ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0); };
+                img.src = frames[index];
+                renderFrameStrip();
+            }
+
+            function deleteFrame() {
+                if (frames.length <= 1) { showToast('Нужен хотя бы 1 кадр'); return; }
+                frames.splice(currentFrameIndex, 1);
+                if (currentFrameIndex >= frames.length) currentFrameIndex = frames.length - 1;
+                loadFrame(currentFrameIndex);
+            }
+
+            function renderFrameStrip() {
+                frameStrip.innerHTML = '';
+                frames.forEach((data, i) => {
+                    const thumb = document.createElement('div');
+                    thumb.className = 'frame-thumb' + (i === currentFrameIndex ? ' active' : '');
+                    const mini = document.createElement('canvas');
+                    mini.width = 26;
+                    mini.height = 26;
+                    const mctx = mini.getContext('2d');
+                    const img = new Image();
+                    img.onload = () => mctx.drawImage(img, 0, 0, 26, 26);
+                    img.src = data;
+                    thumb.appendChild(mini);
+                    thumb.addEventListener('click', () => { stopPlayback();
+                        loadFrame(i); });
+                    frameStrip.appendChild(thumb);
+                });
+                const active = frameStrip.querySelector('.active');
+                if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+
+            function updateFrameThumbnails() {
+                const thumbs = frameStrip.querySelectorAll('.frame-thumb');
+                if (thumbs[currentFrameIndex]) {
+                    const mini = thumbs[currentFrameIndex].querySelector('canvas');
+                    if (mini) {
+                        const img = new Image();
+                        img.onload = () => { mini.getContext('2d').clearRect(0, 0, 26, 26);
+                            mini.getContext('2d').drawImage(img, 0, 0, 26, 26); };
+                        img.src = frames[currentFrameIndex];
+                    }
+                }
+            }
+
+            function playAnimation() {
+                if (isPlaying) { stopPlayback(); return; }
+                if (frames.length === 0) { showToast('Добавь кадры!'); return; }
+                isPlaying = true;
+                playBtn.textContent = '⏸';
+                playBtn.classList.add('playing');
+                currentFrameIndex = 0;
+                loadFrame(currentFrameIndex);
+                playNextFrame();
+            }
+
+            function playNextFrame() {
+                if (!isPlaying) return;
+                playTimer = setTimeout(() => {
+                    currentFrameIndex++;
+                    if (currentFrameIndex >= frames.length) currentFrameIndex = 0;
+                    loadFrame(currentFrameIndex);
+                    playNextFrame();
+                }, 1000 / animFPS);
+            }
+
+            function stopPlayback() {
+                isPlaying = false;
+                playBtn.textContent = '▶';
+                playBtn.classList.remove('playing');
+                if (playTimer) clearTimeout(playTimer);
+            }
+
+            // ====== ЭКСПОРТ ======
+            function downloadPhoto(format) {
+                let mime = 'image/png';
+                let ext = format;
+                if (format === 'jpg') mime = 'image/jpeg';
+                else if (format === 'webp') mime = 'image/webp';
+                else if (format === 'bmp') mime = 'image/bmp';
+                else { mime = 'image/png';
+                    ext = format; }
+                const link = document.createElement('a');
+                link.download = `geopaint_${Date.now()}.${ext}`;
+                link.href = canvas.toDataURL(mime);
+                link.click();
+                showToast(`💾 Сохранено: .${ext}`);
+            }
+
+            function downloadVideo(format, fps) {
+                frames.forEach((data, i) => {
+                    setTimeout(() => {
+                        const link = document.createElement('a');
+                        link.download = `frame_${i+1}.png`;
+                        link.href = data;
+                        link.click();
+                    }, i * 100);
+                });
+                showToast('🎥 Кадры сохранены');
+            }
+
+            // ====== AI ======
+            async function generateAI() {
+                const prompt = document.getElementById('aiPrompt').value.trim();
+                if (!prompt) { showToast('Опиши, что нарисовать!'); return; }
+                const styleEl = document.querySelector('#aiModal .modal-option[data-ai-style].selected');
+                const style = styleEl ? styleEl.dataset.aiStyle : 'realistic';
+                showToast('✦ Генерирую...');
+                try {
+                    const url =
+                        `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt + ', ' + style + ' style')}?width=${canvas.width}&height=${canvas.height}`;
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        saveUndo();
+                        showToast('✦ Готово!');
+                    };
+                    img.onerror = () => showToast('Ошибка генерации');
+                    img.src = url;
+                } catch (e) { showToast('Ошибка'); }
+            }
+
+            // ====== ЗАГРУЗКА ИЗОБРАЖЕНИЯ ======
+            function loadImage() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = e => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const img = new Image();
+                    img.onload = () => {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        canvas.style.width = img.width + 'px';
+                        canvas.style.height = img.height + 'px';
+                        canvas.style.marginLeft = (-img.width / 2) + 'px';
+                        canvas.style.marginTop = (-img.height / 2) + 'px';
+                        ctx.drawImage(img, 0, 0);
+                        saveUndo();
+                        showToast('📥 Загружено!');
+                    };
+                    img.src = URL.createObjectURL(file);
+                };
+                input.click();
+            }
+
+            // ====== АВТОСОХРАНЕНИЕ ======
+            function startAutoSave() {
+                if (autoSaveTimer) clearInterval(autoSaveTimer);
+                if (autoSaveInterval > 0) {
+                    autoSaveTimer = setInterval(() => {
+                        try {
+                            localStorage.setItem('geopaint_autosave', JSON.stringify({ frames,
+                                currentFrameIndex, canvasBg, canvasMode }));
+                            localStorage.setItem('geopaint_canvas', canvas.toDataURL());
+                        } catch (e) {}
+                    }, autoSaveInterval * 1000);
+                }
+            }
+
+            function loadAutoSave() {
+                try {
+                    const data = JSON.parse(localStorage.getItem('geopaint_autosave'));
+                    if (data && data.frames) {
+                        frames = data.frames;
+                        currentFrameIndex = data.currentFrameIndex;
+                        canvasBg = data.canvasBg || '#FFFFFF';
+                        canvasMode = data.canvasMode || 'fit';
+                        const img = new Image();
+                        img.onload = () => { canvas.width = img.width;
+                            canvas.height = img.height;
+                            canvas.style.width = img.width + 'px';
+                            canvas.style.height = img.height + 'px';
+                            canvas.style.marginLeft = (-img.width / 2) + 'px';
+                            canvas.style.marginTop = (-img.height / 2) + 'px';
+                            ctx.drawImage(img, 0, 0); };
+                        img.src = localStorage.getItem('geopaint_canvas') || '';
+                    }
+                } catch (e) {}
+            }
+
+            // ====== ПАРТИКЛЫ (исправленные) ======
+            class Particle {
+                constructor(x, y, ex, ey) {
+                    this.x = x;
+                    this.y = y;
+                    const dx = x - ex,
+                        dy = y - ey;
+                    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                    const speed = 0.5 + Math.random() * 1.5;
+                    this.vx = (dx / dist) * speed * (0.3 + Math.random() * 0.7);
+                    this.vy = (dy / dist) * speed * (0.3 + Math.random() * 0.7) + 0.5;
+                    this.length = 2 + Math.random() * 3;
+                    this.thickness = 0.4 + Math.random() * 0.6;
+                    this.angle = Math.random() * Math.PI;
+                    this.life = 1;
+                    this.decay = 0.04 + Math.random() * 0.05;
+                    this.born = Date.now();
+                    this.maxLife = 1500;
+                    this.color = `hsl(42,75%,${48+Math.random()*18}%)`;
+                }
+                update() { this.x += this.vx;
+                    this.vy += 0.06;
+                    this.y += this.vy;
+                    this.vx *= 0.96;
+                    this.angle += 0.015;
+                    this.life -= this.decay; }
+                draw(ctx) {
+                    if (this.life <= 0) return;
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, this.life * 0.5);
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = this.thickness;
+                    ctx.lineCap = 'round';
+                    ctx.shadowColor = this.color;
+                    ctx.shadowBlur = 2;
+                    ctx.beginPath();
+                    const half = this.length / 2;
+                    ctx.moveTo(this.x - Math.cos(this.angle) * half, this.y - Math.sin(this.angle) * half);
+                    ctx.lineTo(this.x + Math.cos(this.angle) * half, this.y + Math.sin(this.angle) * half);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                isDead() {
+                    return this.life <= 0 || this.y > particlesCanvas.height + 15 || this.x < -15 || this.x > particlesCanvas
+                        .width + 15 || Date.now() - this.born > this.maxLife;
+                }
+            }
+
+            function spawnParticles(rect) {
+                for (let i = 0; i < 5; i++) {
+                    const side = Math.floor(Math.random() * 4);
+                    let x, y;
+                    switch (side) {
+                        case 0:
+                            x = rect.left + Math.random() * rect.width;
+                            y = rect.top;
+                            break;
+                        case 1:
+                            x = rect.right;
+                            y = rect.top + Math.random() * rect.height;
+                            break;
+                        case 2:
+                            x = rect.left + Math.random() * rect.width;
+                            y = rect.bottom;
+                            break;
+                        case 3:
+                            x = rect.left;
+                            y = rect.top + Math.random() * rect.height;
+                            break;
+                    }
+                    particles.push(new Particle(x, y, rect.left + rect.width / 2, rect.top + rect.height / 2));
+                }
+                if (!particleAnimId) animateParticles();
+                if (particleClearTimer) clearTimeout(particleClearTimer);
+                particleClearTimer = setTimeout(clearAllParticles, 2000);
+            }
+
+            function clearAllParticles() {
+                particles = [];
+                if (particleAnimId) { cancelAnimationFrame(particleAnimId);
+                    particleAnimId = null; }
+                particlesCtx.clearRect(0, 0, particlesCanvas.width, particlesCanvas.height);
+            }
+
+            function animateParticles() {
+                particlesCtx.clearRect(0, 0, particlesCanvas.width, particlesCanvas.height);
+                particles = particles.filter(p => { p.update();
+                    p.draw(particlesCtx); return !p.isDead(); });
+                if (particles.length > 0) particleAnimId = requestAnimationFrame(animateParticles);
+                else particleAnimId = null;
+            }
+
+            function addParticleListeners(el) {
+                el.addEventListener('mousedown', () => spawnParticles(el.getBoundingClientRect()));
+                el.addEventListener('touchstart', () => spawnParticles(el.getBoundingClientRect()), { passive: true });
+            }
+
+            // ====== UI: КИСТИ ======
+            brushPanel.innerHTML = '';
+            brushes.forEach(b => {
+                const btn = document.createElement('div');
+                btn.className = 'brush-btn' + (b.type === brushType ? ' active' : '');
+                btn.textContent = b.icon;
+                btn.title = b.type;
+                btn.addEventListener('click', () => {
+                    brushType = b.type;
+                    document.querySelectorAll('.brush-btn').forEach(el => el.classList.remove('active'));
+                    btn.classList.add('active');
+                    eraserTopBtn.classList.remove('active');
+                });
+                brushPanel.appendChild(btn);
+                addParticleListeners(btn);
+            });
+
+            // ====== UI: ЦВЕТА ======
+            colorDots.innerHTML = '';
+            palette.forEach(c => {
+                const dot = document.createElement('div');
+                dot.className = 'color-dot' + (c === currentColor ? ' active' : '');
+                dot.style.backgroundColor = c;
+                dot.addEventListener('click', () => {
+                    currentColor = c;
+                    customColorInput.value = c;
+                    document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+                    dot.classList.add('active');
+                });
+                colorDots.appendChild(dot);
+                addParticleListeners(dot);
+            });
+            customColorInput.addEventListener('input', e => {
+                currentColor = e.target.value;
+                document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+            });
+
+            // ====== UI: РАЗМЕР ======
+            sizeSlider.addEventListener('input', () => { brushSize = parseInt(sizeSlider.value);
+                sizeValue.textContent = brushSize; });
+
+            // ====== КНОПКИ ======
+            document.getElementById('undoBtn').addEventListener('click', undo);
+            document.getElementById('clearBtn').addEventListener('click', clearCanvas);
+            document.getElementById('saveBtn').addEventListener('click', () => openModal('savePhotoModal'));
+            eraserTopBtn.addEventListener('click', () => {
+                if (brushType === 'eraser') { brushType = previousBrush;
+                    eraserTopBtn.classList.remove('active'); } else { previousBrush = brushType;
+                    brushType = 'eraser';
+                    eraserTopBtn.classList.add('active'); }
+            });
+            addParticleListeners(document.getElementById('undoBtn'));
+            addParticleListeners(document.getElementById('clearBtn'));
+            addParticleListeners(document.getElementById('saveBtn'));
+            addParticleListeners(eraserTopBtn);
+
+            // AI
+            document.getElementById('aiBtn').addEventListener('click', () => openModal('aiModal'));
+            document.getElementById('generateAIBtn').addEventListener('click', () => { generateAI();
+                closeModal('aiModal'); });
+            addParticleListeners(document.getElementById('aiBtn'));
+
+            // Анимация
+            document.getElementById('addFrameBtn').addEventListener('click', () => { stopPlayback();
+                addFrame(); });
+            document.getElementById('prevFrameBtn').addEventListener('click', () => { stopPlayback(); if (
+                    currentFrameIndex > 0) loadFrame(currentFrameIndex - 1); });
+            document.getElementById('nextFrameBtn').addEventListener('click', () => { stopPlayback(); if (
+                    currentFrameIndex < frames.length - 1) loadFrame(currentFrameIndex + 1); });
+            document.getElementById('delFrameBtn').addEventListener('click', () => { stopPlayback();
+                deleteFrame(); });
+            playBtn.addEventListener('click', playAnimation);
+            fpsSelect.addEventListener('change', function() { animFPS = parseInt(this.value); if (isPlaying) {
+                    stopPlayback();
+                    playAnimation(); } });
+
+            // ====== МЕНЮ ======
+            const menuOverlay = document.getElementById('menuOverlay');
+            const sideMenu = document.getElementById('sideMenu');
+
+            function openMenu() { sideMenu.classList.add('open');
+                menuOverlay.classList.add('open'); }
+
+            function closeMenu() { sideMenu.classList.remove('open');
+                menuOverlay.classList.remove('open');
+                clearAllParticles(); }
+            document.getElementById('menuBtn').addEventListener('click', openMenu);
+            document.getElementById('menuClose').addEventListener('click', closeMenu);
+            menuOverlay.addEventListener('click', closeMenu);
+            addParticleListeners(document.getElementById('menuBtn'));
+
+            document.querySelectorAll('.menu-item[data-action]').forEach(item => {
+                item.addEventListener('click', function() {
+                    const action = this.dataset.action;
+                    switch (action) {
+                        case 'new-canvas':
+                            openModal('newCanvasModal');
+                            break;
+                        case 'canvas-fit':
+                            canvasMode = 'fit';
+                            resizeCanvas();
+                            showToast('📐 По экрану');
+                            break;
+                        case 'canvas-square':
+                            canvasMode = 'square';
+                            resizeCanvas();
+                            showToast('🟩 Квадрат');
+                            break;
+                        case 'canvas-wide':
+                            canvasMode = 'wide';
+                            resizeCanvas();
+                            showToast('📺 16:9');
+                            break;
+                        case 'canvas-story':
+                            canvasMode = 'story';
+                            resizeCanvas();
+                            showToast('📱 Story');
+                            break;
+                        case 'canvas-color':
+                            const c = prompt('Цвет фона (hex):', canvasBg);
+                            if (c) setCanvasBg(c);
+                            break;
+                        case 'save-photo':
+                            openModal('savePhotoModal');
+                            break;
+                        case 'save-video':
+                            openModal('saveVideoModal');
+                            break;
+                        case 'load-image':
+                            loadImage();
+                            break;
+                        case 'clear':
+                            clearCanvas();
+                            break;
+                        case 'undo':
+                            undo();
+                            break;
+                        case 'rate':
+                            openModal('rateModal');
+                            updateRateModal();
+                            break;
+                        case 'settings':
+                            openModal('settingsModal');
+                            break;
+                    }
+                    closeMenu();
+                });
+            });
+            document.querySelectorAll('.menu-item[data-mode]').forEach(item => {
+                item.addEventListener('click', function() { setMode(this.dataset.mode);
+                    closeMenu(); });
+            });
+
+            // ====== МОДАЛКИ ======
+            function openModal(id) { document.getElementById(id).classList.add('open'); }
+
+            function closeModal(id) { document.getElementById(id).classList.remove('open');
+                clearAllParticles(); }
+            document.querySelectorAll('.modal-close').forEach(btn => {
+                btn.addEventListener('click', function() { closeModal(this.dataset.close); });
+            });
+            document.querySelectorAll('.modal-overlay').forEach(overlay => {
+                overlay.addEventListener('click', function(e) { if (e.target === this) this.classList.remove(
+                        'open');
+                    clearAllParticles(); });
+            });
+
+            // Новый холст
+            document.querySelectorAll('#newCanvasModal .modal-option[data-size]').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    document.querySelectorAll('#newCanvasModal .modal-option[data-size]').forEach(o => o
+                        .classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+            document.querySelectorAll('#newCanvasModal .modal-option[data-bg]').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    document.querySelectorAll('#newCanvasModal .modal-option[data-bg]').forEach(o => o
+                        .classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+            document.getElementById('createCanvasBtn').addEventListener('click', () => {
+                const sizeEl = document.querySelector('#newCanvasModal .modal-option[data-size].selected');
+                const bgEl = document.querySelector('#newCanvasModal .modal-option[data-bg].selected');
+                if (sizeEl) canvasMode = sizeEl.dataset.size;
+                if (bgEl) {
+                    const bg = bgEl.dataset.bg;
+                    if (bg === 'white') canvasBg = '#FFFFFF';
+                    else if (bg === 'dark') canvasBg = '#1a1a1a';
+                    else canvasBg = 'rgba(0,0,0,0)';
+                }
+                resizeCanvas();
+                initCanvas();
+                closeModal('newCanvasModal');
+                showToast('🖼️ Новый холст!');
+            });
+
+            // Сохранить фото
+            document.querySelectorAll('#savePhotoModal .modal-option[data-photo]').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    document.querySelectorAll('#savePhotoModal .modal-option[data-photo]').forEach(o => o
+                        .classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+            document.getElementById('savePhotoBtn').addEventListener('click', () => {
+                const el = document.querySelector('#savePhotoModal .modal-option[data-photo].selected');
+                let format = el ? el.dataset.photo : 'png';
+                if (format === 'custom') format = document.getElementById('customFormat').value || 'dgpew';
+                downloadPhoto(format);
+                closeModal('savePhotoModal');
+            });
+
+            // Сохранить видео
+            document.querySelectorAll('#saveVideoModal .modal-option[data-video]').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    document.querySelectorAll('#saveVideoModal .modal-option[data-video]').forEach(o => o
+                        .classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+            document.getElementById('saveVideoBtn').addEventListener('click', () => {
+                const el = document.querySelector('#saveVideoModal .modal-option[data-video].selected');
+                let format = el ? el.dataset.video : 'mp4';
+                if (format === 'custom') format = document.getElementById('customVideoFormat').value || 'geoplay';
+                const fps = parseInt(document.getElementById('videoFPS').value);
+                downloadVideo(format, fps);
+                closeModal('saveVideoModal');
+            });
+
+            // AI
+            document.querySelectorAll('#aiModal .modal-option[data-ai-style]').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    document.querySelectorAll('#aiModal .modal-option[data-ai-style]').forEach(o => o
+                        .classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+
+            // Рейтинг
+            function updateRateModal() {
+                document.getElementById('avgRating').textContent = ratings.average.toFixed(1);
+                document.getElementById('totalRatings').textContent = ratings.total;
+                document.getElementById('totalReviews').textContent = ratings.reviews.length;
+                const starsEl = document.getElementById('stars');
+                starsEl.innerHTML = '';
+                for (let i = 1; i <= 5; i++) {
+                    const s = document.createElement('span');
+                    s.textContent = i <= ratings.userRating ? '★' : '☆';
+                    s.style.cursor = 'pointer';
+                    s.addEventListener('click', () => { ratings.userRating = i;
+                        updateRateModal(); });
+                    starsEl.appendChild(s);
+                }
+                document.getElementById('userRating').textContent = ratings.userRating ? ratings.userRating + '/5' : '—';
+            }
+            document.getElementById('submitRatingBtn').addEventListener('click', () => {
+                if (!ratings.userRating) { showToast('Выбери оценку!'); return; }
+                ratings.total++;
+                ratings.distribution[ratings.userRating] = (ratings.distribution[ratings.userRating] || 0) + 1;
+                const sum = Object.entries(ratings.distribution).reduce((acc, [k, v]) => acc + parseInt(k) * v, 0);
+                ratings.average = sum / ratings.total;
+                localStorage.setItem('geopaint_ratings', JSON.stringify(ratings));
+                closeModal('rateModal');
+                showToast('⭐ Спасибо!');
+            });
+
+            // Настройки
+            document.getElementById('applySettingsBtn').addEventListener('click', () => {
+                const uiHz = document.getElementById('uiRefreshRate').value;
+                if (uiHz === 'auto') uiTargetFPS = 60;
+                else uiTargetFPS = parseInt(uiHz);
+                uiFrameInterval = 1000 / uiTargetFPS;
+                autoSaveInterval = parseInt(document.getElementById('autoSaveInterval').value);
+                startAutoSave();
+                closeModal('settingsModal');
+                showToast('✅ Настройки сохранены');
+            });
+
+            // ====== РЕСАЙЗ ======
+            function resizeParticlesCanvas() {
+                particlesCanvas.width = window.innerWidth;
+                particlesCanvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', () => { resizeCanvas();
+                resizeParticlesCanvas(); });
+            resizeParticlesCanvas();
+
+            // ====== АВТООПРЕДЕЛЕНИЕ ЧАСТОТЫ ======
+            async function detectScreenHz() {
+                if (window.screen && window.screen.refreshRate) {
+                    const hz = window.screen.refreshRate;
+                    if (hz >= 120) uiTargetFPS = 120;
+                    else if (hz >= 90) uiTargetFPS = 90;
+                    else uiTargetFPS = 60;
+                }
+                uiFrameInterval = 1000 / uiTargetFPS;
+            }
+            detectScreenHz();
+            setInterval(detectScreenHz, 5000);
+
+            // ====== ЗАПУСК ======
+            loadAutoSave();
+            initCanvas();
+            startAutoSave();
+            showToast('👋 Привет, GeoPlay! v4.0');
+
+            console.log('🎨 GeoPaint 4.0 готов!');
+            console.log('   🖌️ 105 кистей с текстурами');
+            console.log('   🎬 Анимация');
+            console.log('   ✦ AI-рисовальщик');
+            console.log('   ⭐ Система оценок');
+            console.log('   ✨ Партиклы (исправлены)');
+            console.log('   📱 iPhone 5s + все телефоны');
+        })();
+    </script>
+</body>
+  </html>
